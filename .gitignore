@@ -1,0 +1,21 @@
+# Ignore temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore IDE files
+.vscode/
+.idea/
+*.iml
+
+# Ignore backup paths created during testing
+/tmp/
+*.war
+
+# Ignore log files
+*.log
