@@ -72,8 +72,8 @@ detect_app_name() {
             APP_NAME="$found"
         else
             # fallback
+            log_warn "No existing app directory found. Falling back to default: gsession"
             APP_NAME="gsession"
-            log_warn "No existing app directory found. Falling back to default: $APP_NAME"
         fi
     fi
 
@@ -139,9 +139,7 @@ deploy_war() {
     # Copy new WAR file as <APP_NAME>.war
     local DEST_WAR="$WEBAPP_DIR/${APP_NAME}.war"
     log_info "Copying new WAR file to $DEST_WAR"
-    cp "$GSESSION_WAR" "$DEST_WAR"
-
-    if [ $? -eq 0 ]; then
+    if cp "$GSESSION_WAR" "$DEST_WAR"; then
         log_info "WAR file deployed successfully: $DEST_WAR"
         return 0
     else
