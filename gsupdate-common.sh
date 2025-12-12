@@ -1,31 +1,15 @@
 #!/bin/bash
 #
-# GroupSession Update Common Functions
-# Common functions used by OS-specific update scripts
+# Common functions for gsupdate scripts
 #
 
-# Color output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+log_info() { echo "[INFO]  $*"; }
+log_warn() { echo "[WARN]  $*"; }
+log_error() { echo "[ERROR] $*" >&2; }
 
-# Logging functions
-log_info() {
-    echo -e "${GREEN}[INFO]${NC} $1"
-}
-
-log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-# Check if running as root
+# Check running as root
 check_root() {
-    if [ "$EUID" -ne 0 ]; then
+    if [ "$(id -u)" -ne 0 ]; then
         log_error "This script must be run as root"
         exit 1
     fi
@@ -59,159 +43,199 @@ validate_params() {
     fi
 }
 
-# Check if Tomcat is running
+# Simple tomcat running check (used by wrappers)
 is_tomcat_running() {
-    if [ -n "$(pgrep -f "catalina.*$TOMCAT_DIR")" ]; then
-        return 0
-    else
-        return 1
-    fi
+    pgrep -f catalina >/dev/null 2>&1
 }
 
-# Backup GroupSession data
-backup_gsession() {
-    log_info "Starting backup process..."
-    
-    local GSESSION_DIR="$TOMCAT_DIR/webapps/gsession"
-    
-    if [ ! -d "$GSESSION_DIR" ]; then
-        log_warn "GroupSession directory not found: $GSESSION_DIR"
-        log_warn "This might be a fresh installation"
+# Detect application directory name under webapps (gsession / gs / etc.)
+# Sets global APP_NAME (e.g., gsession or gs) and APP_DIR
+detect_app_name() {
+    local WEBAPP_DIR="$1"  # e.g. /var/lib/tomcat9/webapps
+    # If already provided by wrapper, keep it
+    if [ -n "${APP_NAME:-}" ]; then
+        APP_DIR="$WEBAPP_DIR/$APP_NAME"
+        log_info "Using explicit app name: $APP_NAME"
         return 0
     fi
-    
-    # Create backup directory with timestamp
-    local TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-    local BACKUP_PATH="$BACKUP_DIR/gsession_backup_$TIMESTAMP"
-    
-    log_info "Creating backup directory: $BACKUP_PATH"
-    mkdir -p "$BACKUP_PATH"
-    
-    # Backup the entire gsession directory
-    log_info "Backing up GroupSession directory..."
-    cp -pr "$GSESSION_DIR" "$BACKUP_PATH/"
-    
-    if [ $? -eq 0 ]; then
-        log_info "Backup completed successfully: $BACKUP_PATH"
-        echo "$BACKUP_PATH" > /tmp/gsupdate_backup_path.txt
-        return 0
+
+    # Priority checks
+    if [ -d "$WEBAPP_DIR/gsession" ]; then
+        APP_NAME="gsession"
+    elif [ -d "$WEBAPP_DIR/gs" ]; then
+        APP_NAME="gs"
     else
-        log_error "Backup failed"
-        return 1
+        # try to find directories starting with gs or gsession
+        local found
+        found=$(ls -1 "$WEBAPP_DIR" 2>/dev/null | grep -E '^gs(session)?' | head -n1 || true)
+        if [ -n "$found" ]; then
+            APP_NAME="$found"
+        else
+            # fallback
+            APP_NAME="gsession"
+            log_warn "No existing app directory found. Falling back to default: $APP_NAME"
+        fi
     fi
+
+    APP_DIR="$WEBAPP_DIR/$APP_NAME"
+    log_info "Detected application name: $APP_NAME -> $APP_DIR"
+    return 0
 }
 
-# Deploy new GroupSession WAR
-deploy_war() {
-    log_info "Deploying new GroupSession WAR file..."
-    
+# Backup the existing application (uses APP_NAME and BACKUP_DIR)
+backup_app() {
+    local TOMCAT_DIR="$1"      # e.g. /var/lib/tomcat9
+    local BACKUP_DIR="$2"      # e.g. /var/backups/gsession
     local WEBAPP_DIR="$TOMCAT_DIR/webapps"
-    local GSESSION_DIR="$WEBAPP_DIR/gsession"
-    
-    # Remove old deployment
-    if [ -d "$GSESSION_DIR" ]; then
-        log_info "Removing old GroupSession deployment..."
-        rm -rf "$GSESSION_DIR"
+
+    detect_app_name "$WEBAPP_DIR"
+
+    mkdir -p "$BACKUP_DIR"
+    local TS
+    TS=$(date +%Y%m%d_%H%M%S)
+    local BACKUP_NAME="${APP_NAME}_backup_${TS}"
+    local BACKUP_PATH="$BACKUP_DIR/$BACKUP_NAME"
+
+    if [ -d "$APP_DIR" ]; then
+        log_info "Backing up $APP_DIR -> $BACKUP_PATH"
+        cp -pr "$APP_DIR" "$BACKUP_PATH"
+        echo "$BACKUP_PATH" >/tmp/gsupdate_backup_path.txt
+        log_info "Backup completed: $BACKUP_PATH"
+        return 0
+    else
+        log_warn "Application directory not found: $APP_DIR. Skipping full directory backup."
+        # still write backup path as empty to indicate no backup dir
+        echo "" >/tmp/gsupdate_backup_path.txt
+        return 0
     fi
-    
-    if [ -f "$WEBAPP_DIR/gsession.war" ]; then
-        log_info "Removing old WAR file..."
+}
+
+# Deploy WAR: remove old WAR and directory for the detected app name, then copy new WAR as APP_NAME.war
+deploy_war() {
+    local TOMCAT_DIR="$1"
+    local GSESSION_WAR="$2"
+    local WEBAPP_DIR="$TOMCAT_DIR/webapps"
+
+    detect_app_name "$WEBAPP_DIR"
+
+    # Remove old deployment (both name forms if present)
+    local DIR1="$WEBAPP_DIR/$APP_NAME"
+    if [ -d "$DIR1" ]; then
+        log_info "Removing old deployment directory: $DIR1"
+        rm -rf "$DIR1"
+    fi
+
+    # Remove old war files with both possible names
+    if [ -f "$WEBAPP_DIR/${APP_NAME}.war" ]; then
+        log_info "Removing old WAR file: $WEBAPP_DIR/${APP_NAME}.war"
+        rm -f "$WEBAPP_DIR/${APP_NAME}.war"
+    fi
+    # Also handle legacy name gsession.war -> gs.war mapping (if app name different)
+    if [ "$APP_NAME" = "gs" ] && [ -f "$WEBAPP_DIR/gsession.war" ]; then
+        log_info "Removing legacy WAR file: $WEBAPP_DIR/gsession.war"
         rm -f "$WEBAPP_DIR/gsession.war"
     fi
-    
-    # Copy new WAR file
-    log_info "Copying new WAR file to webapps directory..."
-    cp "$GSESSION_WAR" "$WEBAPP_DIR/gsession.war"
-    
+
+    # Copy new WAR file as <APP_NAME>.war
+    local DEST_WAR="$WEBAPP_DIR/${APP_NAME}.war"
+    log_info "Copying new WAR file to $DEST_WAR"
+    cp "$GSESSION_WAR" "$DEST_WAR"
+
     if [ $? -eq 0 ]; then
-        log_info "WAR file deployed successfully"
+        log_info "WAR file deployed successfully: $DEST_WAR"
         return 0
     else
-        log_error "Failed to deploy WAR file"
+        log_error "Failed to deploy WAR file to $DEST_WAR"
         return 1
     fi
 }
 
-# Restore data directories
+# Restore data directories from backup (db, file, backup, filekanri, webmail)
 restore_data() {
-    log_info "Restoring data directories..."
-    
-    if [ ! -f /tmp/gsupdate_backup_path.txt ]; then
+    local TOMCAT_DIR="$1"
+    local BACKUP_PATH_FILE="/tmp/gsupdate_backup_path.txt"
+    local WEBAPP_DIR="$TOMCAT_DIR/webapps"
+
+    detect_app_name "$WEBAPP_DIR"
+
+    if [ ! -f "$BACKUP_PATH_FILE" ]; then
         log_warn "No backup path found, skipping data restoration"
         return 0
     fi
-    
-    local BACKUP_PATH=$(cat /tmp/gsupdate_backup_path.txt)
-    local GSESSION_DIR="$TOMCAT_DIR/webapps/gsession"
-    local BACKUP_GSESSION="$BACKUP_PATH/gsession"
-    
-    if [ ! -d "$BACKUP_GSESSION" ]; then
-        log_warn "Backup directory not found: $BACKUP_GSESSION"
+
+    local BACKUP_PATH
+    BACKUP_PATH=$(cat "$BACKUP_PATH_FILE")
+    if [ -z "$BACKUP_PATH" ]; then
+        log_warn "Backup path empty, skipping data restoration"
         return 0
     fi
-    
+
+    local BACKUP_APP_DIR="$BACKUP_PATH"
+    if [ ! -d "$BACKUP_APP_DIR" ]; then
+        log_warn "Backup directory not found: $BACKUP_APP_DIR"
+        return 0
+    fi
+
+    local TARGET_APP_DIR="$WEBAPP_DIR/$APP_NAME"
     # Wait for WAR extraction
-    log_info "Waiting for WAR extraction..."
+    log_info "Waiting for WAR extraction into $TARGET_APP_DIR ..."
     local WAIT_COUNT=0
-    while [ ! -d "$GSESSION_DIR/WEB-INF" ] && [ $WAIT_COUNT -lt 60 ]; do
+    while [ ! -d "$TARGET_APP_DIR/WEB-INF" ] && [ $WAIT_COUNT -lt 60 ]; do
         sleep 2
         WAIT_COUNT=$((WAIT_COUNT + 1))
     done
-    
-    if [ ! -d "$GSESSION_DIR/WEB-INF" ]; then
-        log_error "WAR extraction timeout. WEB-INF directory not found."
+
+    if [ ! -d "$TARGET_APP_DIR/WEB-INF" ]; then
+        log_error "WAR extraction timeout. WEB-INF directory not found in $TARGET_APP_DIR"
         return 1
     fi
-    
-    # Remove new data directories
+
     local DATA_DIRS="db file backup filekanri webmail"
     for DIR in $DATA_DIRS; do
-        if [ -d "$GSESSION_DIR/WEB-INF/$DIR" ]; then
+        if [ -d "$TARGET_APP_DIR/WEB-INF/$DIR" ]; then
             log_info "Removing new $DIR directory..."
-            rm -rf "$GSESSION_DIR/WEB-INF/$DIR"
+            rm -rf "$TARGET_APP_DIR/WEB-INF/$DIR"
         fi
     done
-    
-    # Restore data directories from backup
+
     for DIR in $DATA_DIRS; do
-        if [ -d "$BACKUP_GSESSION/WEB-INF/$DIR" ]; then
-            log_info "Restoring $DIR directory..."
-            cp -pr "$BACKUP_GSESSION/WEB-INF/$DIR" "$GSESSION_DIR/WEB-INF/"
+        if [ -d "$BACKUP_APP_DIR/WEB-INF/$DIR" ]; then
+            log_info "Restoring $DIR directory from backup..."
+            cp -pr "$BACKUP_APP_DIR/WEB-INF/$DIR" "$TARGET_APP_DIR/WEB-INF/"
         else
-            log_warn "Backup directory $DIR not found, skipping..."
+            log_warn "Backup directory $DIR not found in $BACKUP_APP_DIR, skipping..."
         fi
     done
-    
+
     # Restore gsdata.conf if exists
-    if [ -f "$BACKUP_GSESSION/WEB-INF/conf/gsdata.conf" ]; then
+    if [ -f "$BACKUP_APP_DIR/WEB-INF/conf/gsdata.conf" ]; then
         log_info "Restoring gsdata.conf..."
-        cp -p "$BACKUP_GSESSION/WEB-INF/conf/gsdata.conf" "$GSESSION_DIR/WEB-INF/conf/"
+        cp -p "$BACKUP_APP_DIR/WEB-INF/conf/gsdata.conf" "$TARGET_APP_DIR/WEB-INF/conf/"
     fi
-    
+
     log_info "Data restoration completed"
     return 0
 }
 
 # Verify installation
 verify_installation() {
-    log_info "Verifying installation..."
-    
-    local GSESSION_DIR="$TOMCAT_DIR/webapps/gsession"
-    
-    if [ ! -d "$GSESSION_DIR" ]; then
-        log_error "GroupSession directory not found after deployment"
+    local TOMCAT_DIR="$1"
+    local WEBAPP_DIR="$TOMCAT_DIR/webapps"
+
+    detect_app_name "$WEBAPP_DIR"
+
+    local TARGET_APP_DIR="$WEBAPP_DIR/$APP_NAME"
+
+    if [ ! -d "$TARGET_APP_DIR" ]; then
+        log_error "Application directory not found after deployment: $TARGET_APP_DIR"
         return 1
     fi
-    
-    if [ ! -d "$GSESSION_DIR/WEB-INF" ]; then
-        log_error "WEB-INF directory not found"
-        return 1
+
+    if [ ! -d "$TARGET_APP_DIR/WEB-INF" ]; then
+        log_warn "WEB-INF not found in $TARGET_APP_DIR; WAR may not have been extracted yet"
     fi
-    
-    log_info "Installation verification completed"
-    log_info "Please verify the installation by accessing:"
-    log_info "http://[server]:8080/gsession/"
-    
+
+    log_info "Verification looks OK for $TARGET_APP_DIR"
     return 0
 }
 
