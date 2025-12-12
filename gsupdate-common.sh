@@ -67,7 +67,7 @@ detect_app_name() {
     else
         # try to find directories starting with gs or gsession
         local found
-        found=$(ls -1 "$WEBAPP_DIR" 2>/dev/null | grep -E '^gs(session)?' | head -n1 || true)
+        found=$(ls -1 "$WEBAPP_DIR" 2>/dev/null | grep -E '^gs(session)?$' | head -n1 || true)
         if [ -n "$found" ]; then
             APP_NAME="$found"
         else
@@ -170,9 +170,8 @@ restore_data() {
         return 0
     fi
 
-    local BACKUP_APP_DIR="$BACKUP_PATH"
-    if [ ! -d "$BACKUP_APP_DIR" ]; then
-        log_warn "Backup directory not found: $BACKUP_APP_DIR"
+    if [ ! -d "$BACKUP_PATH" ]; then
+        log_warn "Backup directory not found: $BACKUP_PATH"
         return 0
     fi
 
@@ -199,18 +198,18 @@ restore_data() {
     done
 
     for DIR in $DATA_DIRS; do
-        if [ -d "$BACKUP_APP_DIR/WEB-INF/$DIR" ]; then
+        if [ -d "$BACKUP_PATH/WEB-INF/$DIR" ]; then
             log_info "Restoring $DIR directory from backup..."
-            cp -pr "$BACKUP_APP_DIR/WEB-INF/$DIR" "$TARGET_APP_DIR/WEB-INF/"
+            cp -pr "$BACKUP_PATH/WEB-INF/$DIR" "$TARGET_APP_DIR/WEB-INF/"
         else
-            log_warn "Backup directory $DIR not found in $BACKUP_APP_DIR, skipping..."
+            log_warn "Backup directory $DIR not found in $BACKUP_PATH, skipping..."
         fi
     done
 
     # Restore gsdata.conf if exists
-    if [ -f "$BACKUP_APP_DIR/WEB-INF/conf/gsdata.conf" ]; then
+    if [ -f "$BACKUP_PATH/WEB-INF/conf/gsdata.conf" ]; then
         log_info "Restoring gsdata.conf..."
-        cp -p "$BACKUP_APP_DIR/WEB-INF/conf/gsdata.conf" "$TARGET_APP_DIR/WEB-INF/conf/"
+        cp -p "$BACKUP_PATH/WEB-INF/conf/gsdata.conf" "$TARGET_APP_DIR/WEB-INF/conf/"
     fi
 
     log_info "Data restoration completed"
