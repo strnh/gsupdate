@@ -21,7 +21,7 @@ sudo ./gsupdate-freebsd.sh /path/to/gsession.war [tomcat_dir] [backup_dir] [app_
 | Fedora/RHEL | `/usr/share/tomcat` | `/var/backups/gsession` | Auto-detected |
 | FreeBSD | `/usr/local/apache-tomcat-9.0` | `/var/backups/gsession` | Auto-detected |
 
-**Note:** App name is auto-detected from webapps directory (gsession, gs, or any gs* directory). You can override it with the 4th argument.
+**Note:** App name is auto-detected from webapps directory. Priority order: 1) "gsession" (default), 2) "gs". You can override it with the 4th argument.
 
 ## Custom Paths
 

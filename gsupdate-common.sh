@@ -65,7 +65,7 @@ detect_app_name() {
     elif [ -d "$WEBAPP_DIR/gs" ]; then
         APP_NAME="gs"
     else
-        # try to find directories starting with gs or gsession
+        # try to find directories named exactly 'gs' or 'gsession'
         local found
         found=$(ls -1 "$WEBAPP_DIR" 2>/dev/null | grep -E '^gs(session)?$' | head -n1 || true)
         if [ -n "$found" ]; then

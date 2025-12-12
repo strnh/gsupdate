@@ -52,7 +52,7 @@ sudo ./gsupdate-ubuntu.sh <path/to/gsession.war> [tomcat_dir] [backup_dir] [app_
 **Default values:**
 - `tomcat_dir`: `/var/lib/tomcat9`
 - `backup_dir`: `/var/backups/gsession`
-- `app_name`: Auto-detected (gsession, gs, or any gs* directory)
+- `app_name`: Auto-detected (priority: gsession > gs)
 
 **Examples:**
 ```bash
@@ -78,7 +78,7 @@ sudo ./gsupdate-fedora.sh <path/to/gsession.war> [tomcat_dir] [backup_dir] [app_
 **Default values:**
 - `tomcat_dir`: `/usr/share/tomcat`
 - `backup_dir`: `/var/backups/gsession`
-- `app_name`: Auto-detected (gsession, gs, or any gs* directory)
+- `app_name`: Auto-detected (priority: gsession > gs)
 
 **Examples:**
 ```bash
@@ -101,7 +101,7 @@ sudo ./gsupdate-freebsd.sh <path/to/gsession.war> [tomcat_dir] [backup_dir] [app
 **Default values:**
 - `tomcat_dir`: `/usr/local/apache-tomcat-9.0`
 - `backup_dir`: `/var/backups/gsession`
-- `app_name`: Auto-detected (gsession, gs, or any gs* directory)
+- `app_name`: Auto-detected (priority: gsession > gs)
 
 **Examples:**
 ```bash
