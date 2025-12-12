@@ -46,12 +46,13 @@ chmod +x gsupdate-*.sh
 ### Ubuntu/Debian
 
 ```bash
-sudo ./gsupdate-ubuntu.sh <path/to/gsession.war> [tomcat_dir] [backup_dir]
+sudo ./gsupdate-ubuntu.sh <path/to/gsession.war> [tomcat_dir] [backup_dir] [app_name]
 ```
 
 **Default values:**
 - `tomcat_dir`: `/var/lib/tomcat9`
 - `backup_dir`: `/var/backups/gsession`
+- `app_name`: Auto-detected (priority: gsession > gs)
 
 **Examples:**
 ```bash
@@ -63,17 +64,21 @@ sudo ./gsupdate-ubuntu.sh /tmp/gsession.war /opt/tomcat9
 
 # Specifying both custom directories
 sudo ./gsupdate-ubuntu.sh /tmp/gsession.war /opt/tomcat9 /backup/gsession
+
+# Specifying custom app name (e.g., "gs" instead of "gsession")
+sudo ./gsupdate-ubuntu.sh /tmp/gsession.war /var/lib/tomcat9 /var/backups/gsession gs
 ```
 
 ### Fedora/RHEL/CentOS
 
 ```bash
-sudo ./gsupdate-fedora.sh <path/to/gsession.war> [tomcat_dir] [backup_dir]
+sudo ./gsupdate-fedora.sh <path/to/gsession.war> [tomcat_dir] [backup_dir] [app_name]
 ```
 
 **Default values:**
 - `tomcat_dir`: `/usr/share/tomcat`
 - `backup_dir`: `/var/backups/gsession`
+- `app_name`: Auto-detected (priority: gsession > gs)
 
 **Examples:**
 ```bash
@@ -82,17 +87,21 @@ sudo ./gsupdate-fedora.sh /tmp/gsession.war
 
 # Specifying custom directories
 sudo ./gsupdate-fedora.sh /tmp/gsession.war /usr/local/tomcat /backup/gsession
+
+# Specifying custom app name
+sudo ./gsupdate-fedora.sh /tmp/gsession.war /usr/share/tomcat /var/backups/gsession gs
 ```
 
 ### FreeBSD
 
 ```bash
-sudo ./gsupdate-freebsd.sh <path/to/gsession.war> [tomcat_dir] [backup_dir]
+sudo ./gsupdate-freebsd.sh <path/to/gsession.war> [tomcat_dir] [backup_dir] [app_name]
 ```
 
 **Default values:**
 - `tomcat_dir`: `/usr/local/apache-tomcat-9.0`
 - `backup_dir`: `/var/backups/gsession`
+- `app_name`: Auto-detected (priority: gsession > gs)
 
 **Examples:**
 ```bash
@@ -101,6 +110,9 @@ sudo ./gsupdate-freebsd.sh /tmp/gsession.war
 
 # Specifying custom directories
 sudo ./gsupdate-freebsd.sh /tmp/gsession.war /usr/local/tomcat /backup/gsession
+
+# Specifying custom app name
+sudo ./gsupdate-freebsd.sh /tmp/gsession.war /usr/local/apache-tomcat-9.0 /var/backups/gsession gs
 ```
 
 ## Update Procedure

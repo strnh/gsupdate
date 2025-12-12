@@ -4,33 +4,39 @@
 
 ```bash
 # Ubuntu/Debian
-sudo ./gsupdate-ubuntu.sh /path/to/gsession.war
+sudo ./gsupdate-ubuntu.sh /path/to/gsession.war [tomcat_dir] [backup_dir] [app_name]
 
 # Fedora/RHEL/CentOS
-sudo ./gsupdate-fedora.sh /path/to/gsession.war
+sudo ./gsupdate-fedora.sh /path/to/gsession.war [tomcat_dir] [backup_dir] [app_name]
 
 # FreeBSD
-sudo ./gsupdate-freebsd.sh /path/to/gsession.war
+sudo ./gsupdate-freebsd.sh /path/to/gsession.war [tomcat_dir] [backup_dir] [app_name]
 ```
 
 ## Default Paths
 
-| OS | Tomcat Directory | Backup Directory |
-|----|-----------------|------------------|
-| Ubuntu/Debian | `/var/lib/tomcat9` | `/var/backups/gsession` |
-| Fedora/RHEL | `/usr/share/tomcat` | `/var/backups/gsession` |
-| FreeBSD | `/usr/local/apache-tomcat-9.0` | `/var/backups/gsession` |
+| OS | Tomcat Directory | Backup Directory | App Name |
+|----|-----------------|------------------|----------|
+| Ubuntu/Debian | `/var/lib/tomcat9` | `/var/backups/gsession` | Auto-detected |
+| Fedora/RHEL | `/usr/share/tomcat` | `/var/backups/gsession` | Auto-detected |
+| FreeBSD | `/usr/local/apache-tomcat-9.0` | `/var/backups/gsession` | Auto-detected |
+
+**Note:** App name is auto-detected from webapps directory. Priority order: 1) "gsession" (default), 2) "gs". You can override it with the 4th argument.
 
 ## Custom Paths
 
 ```bash
 # Syntax
-./gsupdate-<OS>.sh <WAR_FILE> [TOMCAT_DIR] [BACKUP_DIR]
+./gsupdate-<OS>.sh <WAR_FILE> [TOMCAT_DIR] [BACKUP_DIR] [APP_NAME]
 
 # Examples
 ./gsupdate-ubuntu.sh /tmp/gsession.war /opt/tomcat /mnt/backup
 ./gsupdate-fedora.sh /tmp/gsession.war /usr/local/tomcat
 ./gsupdate-freebsd.sh /tmp/gsession.war /usr/local/apache-tomcat-9.0.65
+
+# Specifying custom app name (e.g., "gs" instead of "gsession")
+./gsupdate-ubuntu.sh /tmp/gsession.war /var/lib/tomcat9 /var/backups/gsession gs
+./gsupdate-fedora.sh /tmp/gsession.war /usr/share/tomcat /var/backups/gsession gs
 ```
 
 ## Update Steps (Automated)

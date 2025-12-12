@@ -2,11 +2,12 @@
 #
 # GroupSession Update Script for Ubuntu/Debian
 # 
-# Usage: sudo ./gsupdate-ubuntu.sh <gsession.war> [tomcat_dir] [backup_dir]
+# Usage: sudo ./gsupdate-ubuntu.sh <gsession.war> [tomcat_dir] [backup_dir] [app_name]
 #
 # Example:
 #   sudo ./gsupdate-ubuntu.sh /path/to/gsession.war
 #   sudo ./gsupdate-ubuntu.sh /path/to/gsession.war /usr/share/tomcat9 /var/backups/gsession
+#   sudo ./gsupdate-ubuntu.sh /path/to/gsession.war /usr/share/tomcat9 /var/backups/gsession gs
 #
 
 set -e
@@ -30,6 +31,7 @@ DEFAULT_BACKUP_DIR="/var/backups/gsession"
 GSESSION_WAR="${1:-}"
 TOMCAT_DIR="${2:-$DEFAULT_TOMCAT_DIR}"
 BACKUP_DIR="${3:-$DEFAULT_BACKUP_DIR}"
+APP_NAME="${4:-}"
 
 # Ubuntu-specific Tomcat service control
 stop_tomcat() {
@@ -131,11 +133,11 @@ main() {
     
     # Step 2: Backup existing data
     log_info "Step 2: Backing up existing data..."
-    backup_gsession || exit 1
+    backup_app "$TOMCAT_DIR" "$BACKUP_DIR" || exit 1
     
     # Step 3: Deploy new WAR
     log_info "Step 3: Deploying new GroupSession WAR..."
-    deploy_war || exit 1
+    deploy_war "$TOMCAT_DIR" "$GSESSION_WAR" || exit 1
     
     # Step 4: Start Tomcat for WAR extraction
     log_info "Step 4: Starting Tomcat for WAR extraction..."
@@ -148,7 +150,7 @@ main() {
     
     # Step 6: Restore data directories
     log_info "Step 6: Restoring data directories..."
-    restore_data || exit 1
+    restore_data "$TOMCAT_DIR" || exit 1
     
     # Step 7: Start Tomcat final
     log_info "Step 7: Starting Tomcat..."
@@ -157,7 +159,7 @@ main() {
     # Step 8: Verify installation
     log_info "Step 8: Verifying installation..."
     sleep 3
-    verify_installation
+    verify_installation "$TOMCAT_DIR"
     
     # Cleanup
     cleanup
